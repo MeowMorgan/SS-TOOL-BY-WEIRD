@@ -1,0 +1,403 @@
+Set-Location "$env:USERPROFILE\Documents"
+$workDir = "$env:USERPROFILE\Documents\SHARD.RIP"
+if (-not (Test-Path $workDir)) { New-Item -ItemType Directory -Path $workDir -Force | Out-Null }
+$discordInvite = "https://discord.gg/k6DqtFnMfP"
+$playIP = "play.shard.rip"
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+try { [System.Windows.Forms.Application]::EnableVisualStyles() } catch {}
+
+if (-not ([System.Management.Automation.PSTypeName]'Win32').Type) {
+Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices;
+public class Win32 {
+ [DllImport("user32.dll")] public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+ [DllImport("gdi32.dll")] public static extern IntPtr CreateRoundRectRgn(int x1,int y1,int x2,int y2,int cx,int cy);
+ [DllImport("user32.dll")] public static extern int ReleaseCapture();
+ [DllImport("user32.dll")] public static extern int SendMessage(IntPtr hWnd,int Msg,int wParam,int lParam);
+}
+"@
+}
+function Make-Rounded($control,$radius=16){
+ try{ $r=[Win32]::CreateRoundRectRgn(0,0,$control.Width,$control.Height,$radius,$radius); [Win32]::SetWindowRgn($control.Handle,$r,$true)}catch{}
+}
+
+Add-Type -TypeDefinition @"
+using System; using System.Drawing; using System.Drawing.Drawing2D; using System.Windows.Forms;
+public class OceanButton : Button {
+ public Color C1=Color.FromArgb(150,172,234); public Color C2=Color.FromArgb(53,96,215);
+ bool hov=false;
+ public OceanButton(){
+  FlatStyle=FlatStyle.Flat; FlatAppearance.BorderSize=0; BackColor=Color.Transparent; Cursor=Cursors.Hand; ForeColor=Color.White;
+  SetStyle(ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint|ControlStyles.ResizeRedraw|ControlStyles.DoubleBuffer|ControlStyles.SupportsTransparentBackColor,true);
+ }
+ protected override void OnPaint(PaintEventArgs e){
+  Graphics g=e.Graphics; g.SmoothingMode=SmoothingMode.AntiAlias;
+  GraphicsPath p=new GraphicsPath(); int rad=12,w=Width,h=Height;
+  p.AddArc(0,0,rad,rad,180,90); p.AddArc(w-rad,0,rad,rad,270,90); p.AddArc(w-rad,h-rad,rad,rad,0,90); p.AddArc(0,h-rad,rad,rad,90,90); p.CloseFigure();
+  Region=new Region(p);
+  Color a=hov?Color.FromArgb(169,188,240):C1, b=hov?Color.FromArgb(59,104,221):C2;
+  using(LinearGradientBrush br=new LinearGradientBrush(new Rectangle(0,0,w,h),a,b,LinearGradientMode.Vertical)){ g.FillPath(br,p); }
+  using(Pen pen=new Pen(Color.FromArgb(146,150,172,234),1.2f)){ g.DrawPath(pen,p); }
+  using(StringFormat sf=new StringFormat(){Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center})
+  using(SolidBrush tb=new SolidBrush(Color.FromArgb(255,255,255))){ g.DrawString(Text,Font,tb,new Rectangle(0,0,w,h),sf); }
+  p.Dispose();
+ }
+ protected override void OnMouseEnter(EventArgs e){hov=true;Invalidate();base.OnMouseEnter(e);}
+ protected override void OnMouseLeave(EventArgs e){hov=false;Invalidate();base.OnMouseLeave(e);}
+}
+public class GhostDark : Button {
+ bool hov=false;
+ public GhostDark(){
+  FlatStyle=FlatStyle.Flat; FlatAppearance.BorderSize=0; BackColor=Color.Transparent; Cursor=Cursors.Hand; ForeColor=Color.FromArgb(163,170,185);
+  SetStyle(ControlStyles.AllPaintingInWmPaint|ControlStyles.UserPaint|ControlStyles.ResizeRedraw|ControlStyles.DoubleBuffer|ControlStyles.SupportsTransparentBackColor,true);
+ }
+ protected override void OnPaint(PaintEventArgs e){
+  Graphics g=e.Graphics; g.SmoothingMode=SmoothingMode.AntiAlias;
+  GraphicsPath p=new GraphicsPath(); int rad=10,w=Width,h=Height;
+  p.AddArc(0,0,rad,rad,180,90); p.AddArc(w-rad,0,rad,rad,270,90); p.AddArc(w-rad,h-rad,rad,rad,0,90); p.AddArc(0,h-rad,rad,rad,90,90); p.CloseFigure();
+  Region=new Region(p);
+  using(SolidBrush br=new SolidBrush(hov?Color.FromArgb(10,15,27):Color.FromArgb(10,14,23))){ g.FillPath(br,p); }
+  using(Pen pen=new Pen(hov?Color.FromArgb(53,96,215):Color.FromArgb(34,36,42),1.2f)){ g.DrawPath(pen,p); }
+  using(StringFormat sf=new StringFormat(){Alignment=StringAlignment.Center,LineAlignment=StringAlignment.Center})
+  using(SolidBrush tb=new SolidBrush(hov?Color.FromArgb(246,247,248):Color.FromArgb(163,170,185))){ g.DrawString(Text,Font,tb,new Rectangle(0,0,w,h),sf); }
+  p.Dispose();
+ }
+ protected override void OnMouseEnter(EventArgs e){hov=true;Invalidate();base.OnMouseEnter(e);}
+ protected override void OnMouseLeave(EventArgs e){hov=false;Invalidate();base.OnMouseLeave(e);}
+}
+"@ -ReferencedAssemblies "System.Windows.Forms.dll","System.Drawing.dll","System.dll"
+
+# Ocean palette (anticheat.ac)
+$c = @{
+ bg=[System.Drawing.Color]::FromArgb(5,7,13); panel=[System.Drawing.Color]::FromArgb(8,11,17)
+ card=[System.Drawing.Color]::FromArgb(10,14,23); card2=[System.Drawing.Color]::FromArgb(16,22,33)
+ line=[System.Drawing.Color]::FromArgb(34,36,42); lineCard=[System.Drawing.Color]::FromArgb(41,44,52)
+ txt=[System.Drawing.Color]::FromArgb(241,242,242); white=[System.Drawing.Color]::FromArgb(246,247,248)
+ mut=[System.Drawing.Color]::FromArgb(163,170,185); subtle=[System.Drawing.Color]::FromArgb(135,145,164)
+ cy=[System.Drawing.Color]::FromArgb(150,172,234); blue=[System.Drawing.Color]::FromArgb(53,96,215)
+ ok=[System.Drawing.Color]::FromArgb(81,212,176); warn=[System.Drawing.Color]::FromArgb(230,190,86)
+ red=[System.Drawing.Color]::FromArgb(255,122,128); redDeep=[System.Drawing.Color]::FromArgb(72,26,34)
+ sec=[System.Drawing.Color]::FromArgb(150,172,234)
+}
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "SHARD.RIP - Ocean style"
+$form.Size = New-Object System.Drawing.Size(1280,820)
+$form.StartPosition="CenterScreen"; $form.FormBorderStyle="None"; $form.BackColor=$c.bg
+$form.Font=New-Object System.Drawing.Font("Segoe UI",10); $form.TopMost=$false; $form.Opacity=0
+$form.KeyPreview=$true
+try{ $form.GetType().GetProperty("DoubleBuffered",[System.Reflection.BindingFlags]"Instance,NonPublic").SetValue($form,$true,$null)}catch{}
+$form.Add_Paint({
+ $g=$_.Graphics; $g.SmoothingMode=[System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+ $rect=New-Object System.Drawing.Rectangle(0,0,$form.Width,$form.Height)
+ # base: body rgb(9,10,11) -> ocean-base #05070d
+ $br=New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect,[System.Drawing.Color]::FromArgb(9,10,11),[System.Drawing.Color]::FromArgb(5,7,13),[System.Drawing.Drawing2D.LinearGradientMode]::Vertical)
+ $g.FillRectangle($br,$rect); $br.Dispose()
+ # top glow: radial-gradient(at 50% -80%, srgb(53,96,215 / .24), transparent 76%)
+ $glowRect=New-Object System.Drawing.Rectangle([int]($form.Width*0.05),-190,[int]($form.Width*0.9),420)
+ $gp=New-Object System.Drawing.Drawing2D.GraphicsPath
+ $gp.AddEllipse($glowRect)
+ $pg=New-Object System.Drawing.Drawing2D.PathGradientBrush($gp)
+ $pg.CenterColor=[System.Drawing.Color]::FromArgb(61,53,96,215)
+ $pg.SurroundColors=@([System.Drawing.Color]::FromArgb(0,53,96,215))
+ $g.FillRectangle($pg,$rect); $pg.Dispose(); $gp.Dispose()
+})
+function Add-Drag($ctrl){ $ctrl.Add_MouseDown({ if($_.Button -eq [System.Windows.Forms.MouseButtons]::Left){ [Win32]::ReleaseCapture(); [Win32]::SendMessage($form.Handle,0xA1,0x2,0)} }) }
+
+# TOP BAR like Ocean
+$top = New-Object System.Windows.Forms.Panel
+$top.Size=New-Object System.Drawing.Size(1280,60); $top.Location=New-Object System.Drawing.Point(0,0); $top.BackColor=[System.Drawing.Color]::FromArgb(5,7,13)
+$form.Controls.Add($top); Add-Drag $top
+$topLine = New-Object System.Windows.Forms.Label; $topLine.Size=New-Object System.Drawing.Size(1280,1); $topLine.Location=New-Object System.Drawing.Point(0,59); $topLine.BackColor=[System.Drawing.Color]::FromArgb(22,24,30); $topLine.Text=""
+$top.Controls.Add($topLine)
+
+$scriptDir = if($PSScriptRoot){$PSScriptRoot}else{"$env:USERPROFILE\Documents"}
+$logo4k = Join-Path $scriptDir "shard-logo-4k.png"
+if(-not (Test-Path $logo4k)){ $logo4k = Join-Path "$env:USERPROFILE\Documents" "shard-logo-4k.png" }
+if(-not (Test-Path $logo4k)){ $logo4k = Join-Path "$env:USERPROFILE\Documents" "shard-logo.png" }
+$logoBox = New-Object System.Windows.Forms.PictureBox
+$logoBox.Size=New-Object System.Drawing.Size(36,36); $logoBox.Location=New-Object System.Drawing.Point(18,12)
+$logoBox.SizeMode=[System.Windows.Forms.PictureBoxSizeMode]::Zoom; $logoBox.BackColor=[System.Drawing.Color]::Transparent
+if(Test-Path $logo4k){ try{ $logoBox.Image=[System.Drawing.Image]::FromFile($logo4k) }catch{} }
+$top.Controls.Add($logoBox)
+$t1 = New-Object System.Windows.Forms.Label; $t1.Text="SHARD.RIP"; $t1.Font=New-Object System.Drawing.Font("Segoe UI",13,[System.Drawing.FontStyle]::Bold)
+$t1.ForeColor=$c.white; $t1.Location=New-Object System.Drawing.Point(62,10); $t1.Size=New-Object System.Drawing.Size(200,22); $t1.BackColor=[System.Drawing.Color]::Transparent
+$top.Controls.Add($t1); Add-Drag $t1
+$t2 = New-Object System.Windows.Forms.Label; $t2.Text="LOOK BENEATH THE SURFACE"; $t2.Font=New-Object System.Drawing.Font("Segoe UI",7)
+$t2.ForeColor=$c.mut; $t2.Location=New-Object System.Drawing.Point(63,32); $t2.Size=New-Object System.Drawing.Size(220,14); $t2.BackColor=[System.Drawing.Color]::Transparent
+$top.Controls.Add($t2)
+
+$online = New-Object System.Windows.Forms.Label
+$online.Text="ONLINE"; $online.Font=New-Object System.Drawing.Font("Consolas",9,[System.Drawing.FontStyle]::Bold)
+$online.ForeColor=$c.ok; $online.BackColor=[System.Drawing.Color]::FromArgb(12,23,27)
+$online.AutoSize=$true; $online.Location=New-Object System.Drawing.Point(1010,19); $online.Padding=New-Object System.Windows.Forms.Padding(10,6,10,6)
+$top.Controls.Add($online)
+
+$btnDiscordTop = New-Object GhostDark; $btnDiscordTop.Text="Discord"; $btnDiscordTop.Font=New-Object System.Drawing.Font("Segoe UI",9)
+$btnDiscordTop.Size=New-Object System.Drawing.Size(90,32); $btnDiscordTop.Location=New-Object System.Drawing.Point(1095,14)
+$btnDiscordTop.Add_Click({ Start-Process $discordInvite })
+$top.Controls.Add($btnDiscordTop)
+$btnFolderTop = New-Object GhostDark; $btnFolderTop.Text="Folder"; $btnFolderTop.Font=New-Object System.Drawing.Font("Segoe UI",9)
+$btnFolderTop.Size=New-Object System.Drawing.Size(80,32); $btnFolderTop.Location=New-Object System.Drawing.Point(1190,14)
+$btnFolderTop.Add_Click({ Start-Process explorer.exe $workDir })
+$top.Controls.Add($btnFolderTop)
+
+function New-TopBtn($t,$x,$w){
+ $b=New-Object System.Windows.Forms.Button; $b.Text=$t; $b.Font=New-Object System.Drawing.Font("Segoe UI",11,[System.Drawing.FontStyle]::Bold)
+ $b.Size=New-Object System.Drawing.Size($w,36); $b.Location=New-Object System.Drawing.Point($x,12)
+ $b.FlatStyle="Flat"; $b.FlatAppearance.BorderSize=0; $b.BackColor=[System.Drawing.Color]::Transparent; $b.ForeColor=$c.mut; $b.Cursor="Hand"
+ return $b
+}
+$btnMin = New-TopBtn "-" 1272 0; $btnMin.Size=New-Object System.Drawing.Size(1,1); $top.Controls.Add($btnMin)
+$btnMin2 = New-Object System.Windows.Forms.Button; $btnMin2.Text="-"; $btnMin2.Font=New-Object System.Drawing.Font("Segoe UI",11,[System.Drawing.FontStyle]::Bold)
+$btnMin2.Size=New-Object System.Drawing.Size(36,32); $btnMin2.Location=New-Object System.Drawing.Point(1180,14); $btnMin2.FlatStyle="Flat"; $btnMin2.FlatAppearance.BorderSize=0
+$btnMin2.BackColor=[System.Drawing.Color]::Transparent; $btnMin2.ForeColor=$c.mut; $btnMin2.Cursor="Hand"
+$btnMin2.Visible=$false; $top.Controls.Add($btnMin2)
+
+# real minimize / close on right edge
+$minB = New-Object System.Windows.Forms.Button; $minB.Text="-"; $minB.Font=New-Object System.Drawing.Font("Segoe UI",12,[System.Drawing.FontStyle]::Bold)
+$minB.Size=New-Object System.Drawing.Size(40,40); $minB.Location=New-Object System.Drawing.Point(1196,10); $minB.FlatStyle="Flat"; $minB.FlatAppearance.BorderSize=0
+$minB.BackColor=[System.Drawing.Color]::Transparent; $minB.ForeColor=$c.mut; $minB.Cursor="Hand"
+$minB.Add_Click({$form.WindowState="Minimized"}); $form.Controls.Add($minB); $minB.BringToFront()
+$closeB = New-Object System.Windows.Forms.Button; $closeB.Text="X"; $closeB.Font=New-Object System.Drawing.Font("Segoe UI",10,[System.Drawing.FontStyle]::Bold)
+$closeB.Size=New-Object System.Drawing.Size(40,40); $closeB.Location=New-Object System.Drawing.Point(1232,10); $closeB.FlatStyle="Flat"; $closeB.FlatAppearance.BorderSize=0
+$closeB.BackColor=[System.Drawing.Color]::Transparent; $closeB.ForeColor=$c.mut; $closeB.Cursor="Hand"
+$closeB.Add_Click({$form.Close()}); $form.Controls.Add($closeB); $closeB.BringToFront()
+
+# SIDEBAR like Ocean Dashboard
+$side = New-Object System.Windows.Forms.Panel
+$side.Size=New-Object System.Drawing.Size(220,760); $side.Location=New-Object System.Drawing.Point(0,60); $side.BackColor=[System.Drawing.Color]::FromArgb(8,11,17)
+$form.Controls.Add($side)
+$sideLine = New-Object System.Windows.Forms.Label; $sideLine.Size=New-Object System.Drawing.Size(1,760); $sideLine.Location=New-Object System.Drawing.Point(219,0); $sideLine.BackColor=[System.Drawing.Color]::FromArgb(34,36,42); $sideLine.Text=""
+$side.Controls.Add($sideLine)
+
+function Add-SideTitle($t,$y){
+ $l=New-Object System.Windows.Forms.Label; $l.Text=$t; $l.Font=New-Object System.Drawing.Font("Segoe UI",8,[System.Drawing.FontStyle]::Bold)
+ $l.ForeColor=$c.subtle; $l.Location=New-Object System.Drawing.Point(18,$y); $l.Size=New-Object System.Drawing.Size(180,16); $l.BackColor=[System.Drawing.Color]::Transparent
+ $side.Controls.Add($l)
+}
+function Add-SideBtn($t,$y,$tag,$active=$false){
+ $b=New-Object System.Windows.Forms.Button; $b.Text="  "+$t; $b.Font=New-Object System.Drawing.Font("Segoe UI",10)
+ $b.Size=New-Object System.Drawing.Size(196,34); $b.Location=New-Object System.Drawing.Point(12,$y)
+ $b.FlatStyle="Flat"; $b.FlatAppearance.BorderSize=0; $b.TextAlign="MiddleLeft"; $b.Cursor="Hand"; $b.Tag=$tag
+ if($active){ $b.BackColor=[System.Drawing.Color]::FromArgb(32,34,39); $b.ForeColor=$c.white }
+ else { $b.BackColor=[System.Drawing.Color]::Transparent; $b.ForeColor=$c.mut }
+ $b.Add_MouseEnter({ $this.BackColor=[System.Drawing.Color]::FromArgb(32,34,39); $this.ForeColor=$c.white })
+ $b.Add_MouseLeave({ if($this.Tag -ne $script:activeTag){ $this.BackColor=[System.Drawing.Color]::Transparent; $this.ForeColor=$c.mut } })
+ $b.Add_Click({ Select-Section $this.Tag })
+ $side.Controls.Add($b); return $b
+}
+$script:activeTag = "overview"
+Add-SideTitle "SERVICES" 14
+Add-SideBtn "Dashboard" 34 "overview" $true
+Add-SideBtn "Scanner" 72 "scanner"
+Add-SideBtn "Pins" 110 "pins"
+Add-SideBtn "Detections" 148 "detections"
+Add-SideBtn "Custom GUI" 186 "gui"
+Add-SideBtn "Database" 224 "db"
+Add-SideTitle "COMMUNITY" 268
+Add-SideBtn "Public configs" 288 "pubc"
+Add-SideBtn "Public strings" 326 "pubs"
+Add-SideBtn "Discord server" 364 "discord"
+Add-SideTitle "ACCOUNT" 408
+Add-SideBtn "Copy play IP" 428 "copyip"
+Add-SideBtn "Open folder" 466 "folder"
+Add-SideBtn "Settings" 504 "settings"
+
+# MAIN
+$main = New-Object System.Windows.Forms.Panel
+$main.Size=New-Object System.Drawing.Size(1060,760); $main.Location=New-Object System.Drawing.Point(220,60); $main.BackColor=[System.Drawing.Color]::Transparent
+$main.AutoScroll=$true
+$form.Controls.Add($main)
+
+function New-OceanCard($x,$y,$w,$h,$style="ocean"){
+ $p = New-Object System.Windows.Forms.Panel
+ $p.Size=New-Object System.Drawing.Size($w,$h); $p.Location=New-Object System.Drawing.Point($x,$y); $p.BackColor=[System.Drawing.Color]::Transparent
+ $p.Paint.Add({
+  $g=$_.Graphics; $g.SmoothingMode=[System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $ww=$p.Width; $hh=$p.Height
+  $rr=New-Object System.Drawing.Drawing2D.GraphicsPath; $r=16
+  $rr.AddArc(0,0,$r,$r,180,90); $rr.AddArc($ww-$r,0,$r,$r,270,90); $rr.AddArc($ww-$r,$hh-$r,$r,$r,0,90); $rr.AddArc(0,$hh-$r,$r,$r,90,90); $rr.CloseFigure()
+  if($style -eq "danger"){
+   # header: linear-gradient(108deg, #0a0e17 28%, #481a22)
+   $cardRect=New-Object System.Drawing.Rectangle(0,0,$ww,$hh)
+   $br=New-Object System.Drawing.Drawing2D.LinearGradientBrush($cardRect,[System.Drawing.Color]::FromArgb(10,14,23),[System.Drawing.Color]::FromArgb(72,26,34),[float]18)
+   $cb=New-Object System.Drawing.Drawing2D.ColorBlend
+   $cb.Positions=@([float]0,[float]0.28,[float]1)
+   $cb.Colors=@([System.Drawing.Color]::FromArgb(255,10,14,23),[System.Drawing.Color]::FromArgb(255,10,14,23),[System.Drawing.Color]::FromArgb(255,72,26,34))
+   $br.InterpolationColors=$cb
+   $g.FillPath($br,$rr); $br.Dispose()
+  } elseif($style -eq "glow"){
+   # card: #0a0e17 + radial-gradient(circle at 50% 0%, srgb(53,96,215 / .08), #0a0e17)
+   $g.FillPath((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255,10,14,23))),$rr)
+   $gp=New-Object System.Drawing.Drawing2D.GraphicsPath
+   $rad=[int]($ww*0.62); $gp.AddEllipse([int]($ww/2-$rad),[int](-$rad*0.55),$rad*2,$rad*2)
+   $pg=New-Object System.Drawing.Drawing2D.PathGradientBrush($gp)
+   $pg.CenterColor=[System.Drawing.Color]::FromArgb(20,53,96,215)
+   $pg.SurroundColors=@([System.Drawing.Color]::FromArgb(0,53,96,215))
+   $g.FillRectangle($pg,(New-Object System.Drawing.Rectangle(0,0,$ww,$hh))); $pg.Dispose(); $gp.Dispose()
+  } else {
+   # card: linear-gradient(155deg, srgb(8,13,24), #080b11 75%)
+   $cardRect=New-Object System.Drawing.Rectangle(0,0,$ww,$hh)
+   $br=New-Object System.Drawing.Drawing2D.LinearGradientBrush($cardRect,[System.Drawing.Color]::FromArgb(8,13,24),[System.Drawing.Color]::FromArgb(8,11,17),[float]65)
+   $g.FillPath($br,$rr); $br.Dispose()
+  }
+  # sheen interno: linear-gradient(transparent 35%, rgba(255,255,255,.024))
+  $sy=[int]($hh*0.35); if($hh-$sy -gt 0){
+   $sr=New-Object System.Drawing.Rectangle(0,$sy,$ww,$hh-$sy)
+   $sb=New-Object System.Drawing.Drawing2D.LinearGradientBrush($sr,[System.Drawing.Color]::FromArgb(0,255,255,255),[System.Drawing.Color]::FromArgb(6,255,255,255),[System.Drawing.Drawing2D.LinearGradientMode]::Vertical)
+   $g.FillPath($sb,$rr); $sb.Dispose()
+  }
+  $g.DrawPath((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255,41,44,52),1.2)),$rr)
+  # bottom border highlight: rgb(190,204,242 / .16)
+  $g.DrawLine((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255,37,44,53),1)),1,($hh-1),($ww-1),($hh-1))
+  $rr.Dispose()
+ })
+ return $p
+}
+function New-T($t,$x,$yy,$w,$hh,$fs,$bold,$col){
+ $s=if($bold){[System.Drawing.FontStyle]::Bold}else{[System.Drawing.FontStyle]::Regular}
+ $l=New-Object System.Windows.Forms.Label; $l.Text=$t; $l.Font=New-Object System.Drawing.Font("Segoe UI",$fs,$s)
+ $l.ForeColor=$col; $l.Size=New-Object System.Drawing.Size($w,$hh); $l.Location=New-Object System.Drawing.Point($x,$yy)
+ $l.TextAlign="MiddleLeft"; $l.BackColor=[System.Drawing.Color]::Transparent; return $l
+}
+function New-Bar($x,$yy,$w,$pct,$col){
+ $bg = New-Object System.Windows.Forms.Label; $bg.Size=New-Object System.Drawing.Size($w,6); $bg.Location=New-Object System.Drawing.Point($x,$yy); $bg.BackColor=[System.Drawing.Color]::FromArgb(34,36,42); $bg.Text=""
+ $fg = New-Object System.Windows.Forms.Label; $fg.Size=New-Object System.Drawing.Size([int]($w*$pct/100),6); $fg.Location=New-Object System.Drawing.Point($x,$yy); $fg.BackColor=$col; $fg.Text=""
+ return @($bg,$fg)
+}
+
+# header like Ocean Scan Results (danger gradient)
+$head = New-OceanCard 24 18 1012 132 "danger"; $main.Controls.Add($head)
+$head.Controls.Add((New-T "Scan Results" 22 12 400 30 16 $true $c.white))
+$head.Controls.Add((New-T "Forensic breakdown of the scanned system." 22 42 600 20 10 $false $c.mut))
+$pin = "SHARD-" + (Get-Random -Minimum 1000 -Maximum 9999)
+$head.Controls.Add((New-T ("IDENTITY PIN  " + $pin) 22 70 400 22 10 $true $c.cy))
+$head.Controls.Add((New-T "SCAN DURATION  1m 04s     GAME: MINECRAFT  SAMPLE REPORT" 22 94 600 20 9 $false $c.mut))
+$riskLbl = New-T "CHEATING  62% player risk history" 700 18 290 22 10 $true $c.warn; $head.Controls.Add($riskLbl)
+foreach($b in (New-Bar 700 48 290 62 $c.warn)){ $head.Controls.Add($b) }
+$btnOpenDash = New-Object OceanButton; $btnOpenDash.Text="Open dashboard"; $btnOpenDash.Font=New-Object System.Drawing.Font("Segoe UI",10,[System.Drawing.FontStyle]::Bold)
+$btnOpenDash.Size=New-Object System.Drawing.Size(180,38); $btnOpenDash.Location=New-Object System.Drawing.Point(700,66)
+$btnOpenDash.Add_Click({ Start-ShardHub }); $head.Controls.Add($btnOpenDash)
+$badge = New-Object System.Windows.Forms.Label; $badge.Text="DEMO"; $badge.Font=New-Object System.Drawing.Font("Consolas",9,[System.Drawing.FontStyle]::Bold)
+$badge.ForeColor=$c.cy; $badge.BackColor=[System.Drawing.Color]::FromArgb(13,21,38); $badge.AutoSize=$true; $badge.Location=New-Object System.Drawing.Point(890,70)
+$head.Controls.Add($badge)
+
+# PC info + overview
+$left = New-OceanCard 24 160 660 250; $main.Controls.Add($left)
+$left.Controls.Add((New-T "PC Information" 22 12 300 24 12 $true $c.white))
+$left.Controls.Add((New-T "View stats" 560 12 80 24 9 $false $c.cy))
+try{ $os=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).Caption }catch{ $os="Windows 11 Pro" }
+try{ $boot=(Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime; $ago=(Get-Date)-$boot; $bootS="$([int]$ago.TotalDays)d ago" }catch{ $bootS="8d ago" }
+$left.Controls.Add((New-T ("System : " + $os) 22 44 600 20 10 $false $c.txt))
+$left.Controls.Add((New-T ("Boot time : " + $bootS) 22 68 280 20 10 $false $c.txt))
+$left.Controls.Add((New-T "VPN : No" 330 68 280 20 10 $false $c.txt))
+$left.Controls.Add((New-T "Recycle : 24 min ago" 22 92 280 20 10 $false $c.txt))
+$left.Controls.Add((New-T "Game : Minecraft Java" 330 92 280 20 10 $false $c.txt))
+$left.Controls.Add((New-T "Install date : 2026-01-12 09:30" 22 116 600 20 10 $false $c.mut))
+$left.Controls.Add((New-T "Window text : None" 22 140 600 20 10 $false $c.mut))
+$left.Controls.Add((New-T "PLAY.SHARD.RIP - click to copy  |  DISCORD - click to join" 22 170 600 20 9 $true $c.cy))
+foreach($b in (New-Bar 22 200 616 82 $c.blue)){ $left.Controls.Add($b) }
+
+$right = New-OceanCard 694 160 342 250 "glow"; $main.Controls.Add($right)
+$right.Controls.Add((New-T "Scan overview" 20 12 200 24 12 $true $c.white))
+$right.Controls.Add((New-T "Detections  6" 20 48 300 22 11 $true $c.red))
+foreach($b in (New-Bar 20 74 302 60 $c.red)){ $right.Controls.Add($b) }
+$right.Controls.Add((New-T "Warnings  12" 20 92 300 22 11 $true $c.warn))
+foreach($b in (New-Bar 20 118 302 35 $c.warn)){ $right.Controls.Add($b) }
+$right.Controls.Add((New-T "Legit  --" 20 136 300 22 11 $true $c.subtle))
+foreach($b in (New-Bar 20 162 302 8 $c.subtle)){ $right.Controls.Add($b) }
+$right.Controls.Add((New-T "Overview 18  Integrity 22  Suspicious 2" 20 182 302 22 9 $false $c.mut))
+$rightBig = New-Object OceanButton; $rightBig.Text="Start Ocean scan"; $rightBig.Font=New-Object System.Drawing.Font("Segoe UI",10,[System.Drawing.FontStyle]::Bold)
+$rightBig.Size=New-Object System.Drawing.Size(302,36); $rightBig.Location=New-Object System.Drawing.Point(20,208)
+$rightBig.Add_Click({ Start-ShardHub }); $right.Controls.Add($rightBig)
+
+# detection results tabs
+$det = New-OceanCard 24 420 1012 180; $main.Controls.Add($det)
+$det.Controls.Add((New-T "Detection Results  42" 22 12 300 24 12 $true $c.white))
+$det.Controls.Add((New-T "Illustrative findings - run the hub for a live scan." 22 38 700 20 10 $false $c.mut))
+$det.Controls.Add((New-T "Unrecognized module - Process: game.exe - Module: sample-module.dll" 22 66 950 20 10 $false $c.txt))
+$det.Controls.Add((New-T "Execution trace found - Source: Prefetch - File: example-loader.exe" 22 90 950 20 10 $false $c.txt))
+$det.Controls.Add((New-T "Modified file signature - Source: Amcache - Signature requires review" 22 114 950 20 10 $false $c.txt))
+$btnCopy = New-Object GhostDark; $btnCopy.Text="Copy sample"; $btnCopy.Font=New-Object System.Drawing.Font("Segoe UI",9)
+$btnCopy.Size=New-Object System.Drawing.Size(130,30); $btnCopy.Location=New-Object System.Drawing.Point(860,12)
+$btnCopy.Add_Click({ [System.Windows.Forms.Clipboard]::SetText($playIP); $statusText.Text="> copied: play.shard.rip" })
+$det.Controls.Add($btnCopy)
+
+# workflow 3 steps
+$wf = New-OceanCard 24 610 1012 120; $main.Controls.Add($wf)
+$wf.Controls.Add((New-T "One scan. A complete picture." 22 10 400 24 12 $true $c.white))
+$wf.Controls.Add((New-T "1. Create a PIN in the hub   2. Player runs scan   3. Review evidence with team" 22 38 950 20 10 $false $c.mut))
+$wf.Controls.Add((New-T "Free tier - 3 PINs a day  |  Minecraft Java support  |  Discord connected" 22 62 950 20 10 $false $c.sec))
+$btnStart = New-Object OceanButton; $btnStart.Text="Start Ocean"; $btnStart.Font=New-Object System.Drawing.Font("Segoe UI",10,[System.Drawing.FontStyle]::Bold)
+$btnStart.Size=New-Object System.Drawing.Size(170,36); $btnStart.Location=New-Object System.Drawing.Point(820,38)
+$btnStart.Add_Click({ Start-ShardHub }); $wf.Controls.Add($btnStart)
+
+# activity log terminal
+$logCard = New-OceanCard 24 740 1012 170; $main.Controls.Add($logCard)
+$logCard.Controls.Add((New-T "ACTIVITY LOG" 22 8 200 20 9 $true $c.cy))
+$global:LogBox = New-Object System.Windows.Forms.TextBox
+$global:LogBox.Multiline=$true; $global:LogBox.ReadOnly=$true; $global:LogBox.ScrollBars="Vertical"
+$global:LogBox.BackColor=[System.Drawing.Color]::FromArgb(5,7,13); $global:LogBox.ForeColor=$c.cy
+$global:LogBox.Font=New-Object System.Drawing.Font("Consolas",9); $global:LogBox.BorderStyle="None"
+$global:LogBox.Size=New-Object System.Drawing.Size(968,120); $global:LogBox.Location=New-Object System.Drawing.Point(22,34)
+$logCard.Controls.Add($global:LogBox)
+
+$statusText = New-Object System.Windows.Forms.Label
+$statusText.Text="> Ready - Documents mode  |  discord.gg/k6DqtFnMfP"; $statusText.Font=New-Object System.Drawing.Font("Consolas",9)
+$statusText.ForeColor=$c.ok; $statusText.Size=New-Object System.Drawing.Size(1012,20); $statusText.Location=New-Object System.Drawing.Point(24,916)
+$statusText.TextAlign="MiddleCenter"; $statusText.BackColor=[System.Drawing.Color]::Transparent
+$main.Controls.Add($statusText)
+
+function Write-Log($m){
+ $ts=Get-Date -Format "HH:mm:ss"
+ try{ $global:LogBox.AppendText("[$ts] $m`r`n") }catch{}
+}
+function Select-Section($tag){
+ $script:activeTag=$tag
+ foreach($ch in $side.Controls){ if($ch -is [System.Windows.Forms.Button]){ if($ch.Tag -eq $tag){ $ch.BackColor=[System.Drawing.Color]::FromArgb(32,34,39); $ch.ForeColor=$c.white } else { $ch.BackColor=[System.Drawing.Color]::Transparent; $ch.ForeColor=$c.mut } } }
+ switch($tag){
+  "discord" { Start-Process $discordInvite; Write-Log "Opened Discord: $discordInvite" }
+  "copyip" { [System.Windows.Forms.Clipboard]::SetText($playIP); Write-Log "Copied IP: $playIP"; $statusText.Text="> IP copied: play.shard.rip" }
+  "folder" { Start-Process explorer.exe $workDir; Write-Log "Opened folder: $workDir" }
+  "overview" { Write-Log "Overview selected" }
+  default { Write-Log "Selected $tag - launching hub..."; Start-ShardHub }
+ }
+}
+
+function Start-ShardHub(){
+ Set-Location "$env:USERPROFILE\Documents"
+ try{ $statusText.Text="> Launching SHARD.RIP..."; $statusText.ForeColor=$c.warn }catch{}
+ try{ $form.Refresh() }catch{}
+ $hubUrl="https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolsHub.ps1"
+ $patched=Join-Path $env:TEMP "SHARDRIP_hub.ps1"
+ try{
+  [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+  $code=(Invoke-WebRequest -Uri $hubUrl -UseBasicParsing -TimeoutSec 30).Content
+  $code=$code -replace 'SS TOOLS HUB','SHARD.RIP'
+  $code=$code -replace 'SSToolsHub Launcher','SHARD.RIP Launcher'
+  $code=$code -replace 'SSToolsHub','SHARD.RIP'
+  $code=$code -replace '3ntrsquad/SHARD\.RIP','3ntrsquad/SSToolsHub'
+  $code=$code -replace 'Downloads\\SHARD\.RIP','Documents\SHARD.RIP'
+  $code=$code -replace 'Downloads/SHARD\.RIP','Documents/SHARD.RIP'
+  $code=$code -replace '\$global:installDir = ".*?"','$global:installDir = "$env:USERPROFILE\Documents\SHARD.RIP"'
+  $code=$code -replace 'Text="SS"','Text="SH"'
+  Set-Content -Path $patched -Value $code -Encoding UTF8
+  Start-Process powershell.exe -ArgumentList "-NoExit","-ep","bypass","-File","`"$patched`""
+ }catch{
+  Start-Process powershell.exe -ArgumentList "-NoExit","-ep","bypass","-c","Set-Location '$env:USERPROFILE\Documents'; irm https://raw.githubusercontent.com/3ntrsquad/SSToolsHub/refs/heads/main/SSToolsHub.ps1 | iex"
+ }
+ $form.Close()
+}
+
+$form.Add_KeyDown({ if($_.KeyCode -eq "Escape"){$form.Close()}; if($_.KeyCode -eq "Enter"){Start-ShardHub} })
+$timer=New-Object System.Windows.Forms.Timer; $timer.Interval=18
+$timer.Add_Tick({ if($form.Opacity -lt 1){ $form.Opacity+=0.07 } else { $timer.Stop() } })
+$timer.Start()
+$form.Add_Shown({ Make-Rounded $form 16 })
+Write-Log "SHARD.RIP Ocean-style ready"
+Write-Log ("Install location: " + $workDir)
+Write-Log ("Discord: " + $discordInvite)
+[void]$form.ShowDialog()
